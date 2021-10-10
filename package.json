@@ -1,0 +1,20 @@
+{
+  "name": "hns-blockclock",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bfile": "^0.2.2",
+    "blgr": "^0.2.0",
+    "bweb": "^0.1.10",
+    "hs-client": "0.0.9"
+  }
+}
