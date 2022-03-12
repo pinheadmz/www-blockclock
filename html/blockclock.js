@@ -40,10 +40,10 @@ window.addEventListener('resize', () => {
 canvas.onmousedown = (e) => {
   // Check blocks first
   for (const block of state.blocks) {
-    if (   e.clientX > block.x
-        && e.clientX < block.x + 110
-        && e.clientY > block.y
-        && e.clientY < block.y + 110) {
+    if (   e.pageX > block.x
+        && e.pageX < block.x + 110
+        && e.pageY > block.y
+        && e.pageY < block.y + 110) {
       window.open(`https://hnsnetwork.com/blocks/${block.height}`, '_blank');
       return;
     }
@@ -53,7 +53,7 @@ canvas.onmousedown = (e) => {
   let hash;
   let distance = Infinity;
   for (const tx of state.mempool) {
-    const d = Math.sqrt(((e.clientX - tx.x)**2) + ((e.clientY - tx.y)**2));
+    const d = Math.sqrt(((e.pageX - tx.x)**2) + ((e.pageY - tx.y)**2));
     if (d < distance) {
       distance = d;
       hash = tx.hash;
