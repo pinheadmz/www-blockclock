@@ -1,13 +1,68 @@
 /* eslint-env browser */
 'use strict';
 
-const canvas = document.getElementById('c1');
-const ctx = canvas.getContext('2d');
-
 // Initialize with mainnet network parameters
 let params = {treeinterval: 36, halvening: 170000};
 let latestBlocks = {};
-const state = {};
+const state = {
+  bits: [],
+  interval: 0,
+  tip: {},
+  mempool: [],
+  blocks: []
+};
+
+// Colors for mempool tx output covenant dots
+const COVCOLORS = [
+  '#ffffff',    // NONE: 0,
+  '#ff9e9e',    // CLAIM: 1,
+  '#ffa500',    // OPEN: 2,
+  '#0000ff',    // BID: 3,
+  '#ff0000',    // REVEAL: 4,
+  '#ffff00',    // REDEEM: 5,
+  '#00ff00',    // REGISTER: 6,
+  '#00ff00',    // UPDATE: 7,
+  '#ff00ff',    // RENEW: 8,
+  '#00ffff',    // TRANSFER: 9,
+  '#00ffff',    // FINALIZE: 10,
+  '#c0c0c0'     // REVOKE: 11
+];
+
+// Automatically resize canvas to fit window
+const canvas = document.getElementById('c1');
+const ctx = canvas.getContext('2d');
+canvas.width = Math.max(800, window.innerWidth);
+window.addEventListener('resize', () => {
+  canvas.width = Math.max(800, window.innerWidth);
+});
+
+// Clicking on canvas finds closest object and opens link
+canvas.onmousedown = (e) => {
+  // Check blocks first
+  for (const block of state.blocks) {
+    if (   e.clientX > block.x
+        && e.clientX < block.x + 110
+        && e.clientY > block.y
+        && e.clientY < block.y + 110) {
+      window.open(`https://hnsnetwork.com/blocks/${block.height}`, '_blank');
+      return;
+    }
+  }
+
+  // Find nearest mempool tx
+  let hash;
+  let distance = Infinity;
+  for (const tx of state.mempool) {
+    const d = Math.sqrt(((e.clientX - tx.x)**2) + ((e.clientY - tx.y)**2));
+    if (d < distance) {
+      distance = d;
+      hash = tx.hash;
+    }
+  }
+
+  if (hash)
+    window.open(`https://niami/tx/${hash}`, '_blank');
+};
 
 /**
  *  DRAW ARTWORK
@@ -173,6 +228,15 @@ function drawBlock(block, offX, offY, size = 1, tip = false) {
         favctx.fillStyle = ctx.fillStyle;
         favctx.fillRect(x, y, x, y);
       }
+
+      // Store block's coordinates in state for click-distancing
+      if (x === 0 && y === 0) {
+        state.blocks.push({
+          height: block.height,
+          x: (x + 1) * d - r + offX + (canvas.width / 2) - 400,
+          y: (y + 1) * d - r + offY
+        });
+      }
     }
   }
 
@@ -200,6 +264,11 @@ function drawBlock(block, offX, offY, size = 1, tip = false) {
 function drawClock() {
   // Blank slate
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  state.blocks.length = 0;
+
+  // Translate to center given window width
+  ctx.save();
+  ctx.translate((canvas.width / 2) - 400, 0);
 
   // Halvening meter is drawn first (background)
   drawHalvening();
@@ -226,8 +295,80 @@ function drawClock() {
     drawBlock(block, x + clockrad, y + clockrad, 4, tip);
   }
 
-  // Tree fractal is drawn last (foreground)
+  // Tree fractal is drawn second to last (foreground)
   drawTree();
+
+  // restore context to full width for mempool
+  ctx.restore();
+
+  // Mempool stars go on top
+  drawMempool();
+}
+
+function drawMempool() {
+  for (const tx of state.mempool)
+    drawTX(tx);
+}
+
+function drawTX(tx) {
+  const r = 2;
+
+  ctx.save();
+  ctx.lineWidth = 0;
+
+  // set tx position around clock
+  const y1 = (parseInt(tx.hash.slice(2, 4), 16) / 255) * canvas.height;
+  const diamond = Math.abs(y1 - (canvas.height / 2)) - 150;
+
+  let x1 =
+    (parseInt(tx.hash.slice(0, 2), 16) / 255) *
+    (canvas.width / 2 + diamond + diamond);
+  x1 =
+    x1 < (canvas.width / 4) + diamond ?
+    x1 :
+    x1 + (canvas.width / 2) - diamond - diamond;
+
+  ctx.translate(x1, y1);
+
+  // save location in state.mempool for click-distance checks
+  tx.x = x1;
+  tx.y = y1;
+
+  // rotate each tx spiral every second
+  const tick = (Date.now() / 1000) % 360;
+  ctx.rotate(
+    ((parseInt(tx.hash.slice(4, 6), 16) / 255 * 360) - (tick * 6))
+    * (Math.PI / 180)
+  );
+
+  // compute the angle of the spiral based on tx size
+  const l = tx.outputs.length;
+  let x = 1;
+  x = l < 20 ? 1.1 : x;
+  x = l < 10 ? 1.8 : x;
+  x = l < 5  ? 4 : x;
+
+  // draw outputs
+  for (let i = 0; i < l; i++) {
+    const t = tx.outputs[i];
+    const rads = (Math.PI * x) / ((i + 55) * 0.15);
+    ctx.beginPath();
+    ctx.fillStyle = COVCOLORS[t];
+    ctx.arc(
+      0,
+      0,
+      r,
+      0,
+      2 * Math.PI
+    );
+    ctx.fill();
+
+    // next output will be drawn at some offset to create spiral
+    ctx.translate(0, r * 2);
+    ctx.rotate(rads);
+  }
+
+  ctx.restore();
 }
 
 /**
@@ -308,6 +449,7 @@ function openSocket() {
   const socket = new WebSocket(protocol + '//' + window.location.host);
   socket.addEventListener('message', (event) => {
     const data = event.data;
+
     // event type = MESSAGE
     if (data[0] !== '4')
       return;
@@ -322,7 +464,13 @@ function openSocket() {
     if (json[0] === 'blocks') {
       latestBlocks = json[1];
       setTip();
-      drawClock();
+      // Reset mempool
+      state.mempool.length = 0;
+    }
+
+    // Message is a mempool tx
+    if (json[0] === 'tx') {
+      state.mempool.push(json[1]);
     }
   });
 

@@ -61,6 +61,20 @@
         <h1>The Handshake Block Clock</h1>
       </div>
 
+      <h2> Mempool Transactions </h2>
+      Unconfirmed transactions are drawn as spirals around the outside of the clock face. Click on a transaction spiral to open it in a block explorer. Only the outputs of the transaction are shown, colored by covenant type:<br>
+
+      <span style="color: #ffffff; margin: 10px">NONE (white)</span>
+      <span style="color: #ff9e9e; margin: 10px">CLAIM (pink)</span>
+      <span style="color: #ffa500; margin: 10px">OPEN (orange)</span>
+      <span style="color: #0000ff; margin: 10px">BID (blue)</span>
+      <span style="color: #ff0000; margin: 10px">REVEAL (red)</span>
+      <span style="color: #ffff00; margin: 10px">REDEEM (yellow)</span>
+      <span style="color: #00ff00; margin: 10px">REGISTER, UPDATE (green)</span>
+      <span style="color: #ff00ff; margin: 10px">RENEW (violet)</span>
+      <span style="color: #00ffff; margin: 10px">TRANSFER, FINALIZE (cyan)</span>
+      <span style="color: #c0c0c0; margin: 10px">REVOKE (grey)</span>
+
       <h2> Blocks </h2>
       Blocks are represented by their hash, expressed in binary. The colors
       in the image are derived from the hash itself. They are labeled
@@ -68,6 +82,7 @@
       by the server's hsd node. The most recent block hash (chain tip) is also
       copied into the browser tab's "shortcut icon". Blocks "tick" around the
       outside of the clock, which represents 60 minutes of recent chain history.
+      Click a block to open it in a block explorer.
       The current block hash and its colors are:
       <div style="text-align:center">
         <h3><span id="tiphash" style="font-family:monospace;"></span></h3>

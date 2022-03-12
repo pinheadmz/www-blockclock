@@ -13,6 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "bfile": "^0.2.2",
+    "bfilter": "^1.0.5",
     "blgr": "^0.2.0",
     "bweb": "^0.1.10",
     "hs-client": "0.0.9"
