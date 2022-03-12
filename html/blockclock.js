@@ -60,7 +60,7 @@ canvas.onmousedown = (e) => {
     }
   }
 
-  if (hash)
+  if (hash && (distance < 20))
     window.open(`https://niami/tx/${hash}`, '_blank');
 };
 
