@@ -231,7 +231,7 @@ function drawBlock(block, offX, offY, size = 1, tip = false) {
 
       // Store block's coordinates in state for click-distancing
       if (x === 0 && y === 0) {
-        state.blocks.push({
+        state.blocks.unshift({
           height: block.height,
           x: (x + 1) * d - r + offX + (canvas.width / 2) - 400,
           y: (y + 1) * d - r + offY
