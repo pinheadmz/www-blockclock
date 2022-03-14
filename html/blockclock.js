@@ -44,7 +44,7 @@ canvas.onmousedown = (e) => {
         && e.pageX < block.x + 110
         && e.pageY > block.y
         && e.pageY < block.y + 110) {
-      window.open(`https://hnsnetwork.com/blocks/${block.height}`, '_blank');
+      window.open(`https://niami/block/${block.height}`, '_blank');
       return;
     }
   }
