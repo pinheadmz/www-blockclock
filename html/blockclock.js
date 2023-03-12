@@ -446,7 +446,7 @@ function get(endpoint, callback = () => {}) {
 // Initialize socket to server to recieve real-time updates
 function openSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const socket = new WebSocket(protocol + '//' + window.location.host + window.location.host.pathname);
+  const socket = new WebSocket(protocol + '//' + window.location.host + window.location.pathname);
   socket.addEventListener('message', (event) => {
     const data = event.data;
 
