@@ -2,14 +2,8 @@
 
 const Path = require('path');
 const Logger = require('blgr');
-const Config = require('bcfg');
 
-const Webserver = require('./webserver');
-
-const config = new Config('handout');
-config.prefix = '';
-config.parseArg();
-config.open(Path.join(__dirname, '..', 'conf', 'handout.conf'));
+const Webserver = require('../lib/webserver');
 
 const html = Path.join(__dirname, '..', 'html');
 const logger = new Logger();
@@ -20,8 +14,8 @@ logger.set({
 });
 
 const webserver = new Webserver({
-  test: config.bool('test', false),
-  reset: config.bool('reset', false),
+  test: false,
+  reset: false,
   html,
   logger
 });

@@ -2,7 +2,7 @@
 'use strict';
 
 // Initialize with mainnet network parameters
-let params = {treeinterval: 36, halvening: 170000};
+let params = {halvening: 210000};
 let latestBlocks = {};
 const state = {
   bits: [],
@@ -11,22 +11,6 @@ const state = {
   mempool: [],
   blocks: []
 };
-
-// Colors for mempool tx output covenant dots
-const COVCOLORS = [
-  '#ffffff',    // NONE: 0,
-  '#ff9e9e',    // CLAIM: 1,
-  '#ffa500',    // OPEN: 2,
-  '#0000ff',    // BID: 3,
-  '#ff0000',    // REVEAL: 4,
-  '#ffff00',    // REDEEM: 5,
-  '#00ff00',    // REGISTER: 6,
-  '#00ff00',    // UPDATE: 7,
-  '#ff00ff',    // RENEW: 8,
-  '#00ffff',    // TRANSFER: 9,
-  '#00ffff',    // FINALIZE: 10,
-  '#c0c0c0'     // REVOKE: 11
-];
 
 // Automatically resize canvas to fit window
 const canvas = document.getElementById('c1');
@@ -44,7 +28,7 @@ canvas.onmousedown = (e) => {
         && e.pageX < block.x + 110
         && e.pageY > block.y
         && e.pageY < block.y + 110) {
-      window.open(`https://niami/block/${block.height}`, '_blank');
+      window.open(`https://mempool.space/block/${block.height}`, '_blank');
       return;
     }
   }
@@ -61,7 +45,7 @@ canvas.onmousedown = (e) => {
   }
 
   if (hash && (distance < 50))
-    window.open(`https://niami/tx/${hash}`, '_blank');
+    window.open(`https://mempool.space/tx/${hash}`, '_blank');
 };
 
 /**
@@ -296,7 +280,7 @@ function drawClock() {
   }
 
   // Tree fractal is drawn second to last (foreground)
-  drawTree();
+  // drawTree();
 
   // restore context to full width for mempool
   ctx.restore();
@@ -350,10 +334,9 @@ function drawTX(tx) {
 
   // draw outputs
   for (let i = 0; i < l; i++) {
-    const t = tx.outputs[i];
     const rads = (Math.PI * x) / ((i + 55) * 0.15);
     ctx.beginPath();
-    ctx.fillStyle = COVCOLORS[t];
+    ctx.fillStyle = '#ffffff';
     ctx.arc(
       0,
       0,
@@ -390,33 +373,6 @@ function setTip() {
     const value = latestBlocks[state.tip.height - i].bits;
     state.bits.push(value.toString(16));
   }
-
-  // Fill in explanation text with current data
-  const hash = state.tip.hash;
-  const first = hash.slice(0,-12);
-  const second = hash.slice(-12, -6);
-  const third = hash.slice(-6);
-  document.getElementById('tiphash').innerHTML =
-    `${first}` +
-    `<span style="color:#${second}">${second}</span>` +
-    `<span style="color:#${third}">${third}</span>`;
-
-  const root = state.tip.treeRoot;
-  const angle = root.slice(0, 2);
-  const middle = root.slice(2, -6);
-  const color = root.slice(-6);
-  document.getElementById('treeroot').innerHTML =
-    `<span style="color:black;background-color:white">${angle}</span>` +
-    `${middle}` +
-    `<span style="color:#${color}">${color}</span>`;
-
-  let bitslist = '';
-  for (const bits of state.bits) {
-    bitslist += `<h3><span>${bits.slice(0, 2)}</span>`;
-    bitslist += `<span style="color:#${bits.slice(2)}">`;
-    bitslist += `${bits.slice(2)}</span></h3>`;
-  }
-  document.getElementById('bitslist').innerHTML = bitslist;
 }
 
 /**
@@ -490,18 +446,6 @@ get('params', (res) => {
     openSocket();
   });
 });
-
-// Warn users of inecure conenction
-if (window.location.protocol === 'http:') {
-  const modal = document.getElementById('securityWarning');
-  modal.style.display = 'block';
-  document.onclick = () => {
-    modal.style.display = 'none';
-  };
-  document.ontouchstart = () => {
-    modal.style.display = 'none';
-  };
-}
 
 // TICK TOCK!
 setInterval(drawClock, 1000);

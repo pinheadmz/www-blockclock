@@ -1,5 +1,5 @@
 {
-  "name": "hns-blockclock",
+  "name": "www-blockclock",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -9,13 +9,14 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Matthew Zipkin pinheadmz@pm.me",
+  "license": "MIT",
   "dependencies": {
     "bfile": "^0.2.2",
     "bfilter": "^1.0.5",
     "blgr": "^0.2.0",
     "bweb": "^0.1.10",
-    "hs-client": "0.0.9"
+    "hs-client": "0.0.9",
+    "zeromq": "^6.5.0"
   }
 }
