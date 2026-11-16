@@ -142,9 +142,13 @@ function drawHalvening(offX, offY) {
   radius -= 30;
   const shadow = radius * 2 * pct;
 
-  const bits = state.tip.bits;
-  const color0 = '#' + bits.slice(0, 6);
-  const color1 = '#' + bits.slice(2);
+  // Hue from the target mantissa, with fixed saturation and lightness
+  // so the moon stays bright against the black background
+  const mantissa = parseInt(state.tip.bits.slice(2), 16);
+  const hue0 = mantissa % 360;
+  const hue1 = (hue0 + 60) % 360;
+  const color0 = `hsl(${hue0}, 80%, 65%)`;
+  const color1 = `hsl(${hue1}, 80%, 75%)`;
 
   ctx.lineWidth = 4;
 
