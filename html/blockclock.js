@@ -5,8 +5,6 @@
 let params = {halvening: 210000};
 let latestBlocks = {};
 const state = {
-  bits: [],
-  interval: 0,
   tip: {},
   mempool: [],
   blocks: []
@@ -52,30 +50,51 @@ canvas.onmousedown = (e) => {
  *  DRAW ARTWORK
  */
 
+// Art below is ported from blokstr, which draws on a 1200x1200 canvas.
+// It is drawn in those units then scaled down to fit inside the clock face.
+const ART_SIZE = 1200;
+const ART_SCALE = 0.43;
+// Center of the ring of blocks drawn in drawClock()
+const CLOCK_CENTER = 392;
+const DIFF_INTERVAL = 2016;
+// Mempool txs are kept outside this radius around the clock
+const MEMPOOL_RADIUS = 420;
+
+// Draws tree, moon and satellite in the center of the clock
+function drawArt() {
+  ctx.save();
+  ctx.translate(CLOCK_CENTER, CLOCK_CENTER);
+  ctx.scale(ART_SCALE, ART_SCALE);
+
+  // Same relative layout as blokstr, centered on the clock
+  drawHalvening(228, -192);
+  drawTree(-172, 408);
+
+  ctx.restore();
+}
+
 // Draws tree branches recursively
 // https://dev.to/lautarolobo/
 // use-javascript-and-html5-to-code-a-fractal-tree-2n69
-function drawBranches(startX, startY, len, angle, branchWidth) {
+function drawBranches(startX, startY, len, angle, branchWidth, grd, base) {
   ctx.lineWidth = branchWidth;
 
   ctx.beginPath();
   ctx.save();
-
-  // Get color from last 3 bytes of current block's tree root
-  const hash = state.tip.treeRoot;
-  const color = '#' + hash.slice(-6);
-  ctx.strokeStyle = color;
 
   // Draw one branch
   ctx.translate(startX, startY);
   ctx.rotate(angle * Math.PI/180);
   ctx.moveTo(0, 0);
   ctx.lineTo(0, -len);
-  ctx.stroke();
 
-  // Some finesse
-  ctx.shadowBlur = 15;
-  ctx.shadowColor = 'rgba(0,0,0,0.8)';
+  // Stroke in the tree's base coordinates so the gradient
+  // spans the whole tree instead of each rotated branch
+  ctx.save();
+  ctx.setTransform(base);
+  ctx.strokeStyle = grd;
+  ctx.stroke();
+  ctx.restore();
 
   // End recursion once lines get too short
   if (len < 5) {
@@ -83,79 +102,107 @@ function drawBranches(startX, startY, len, angle, branchWidth) {
     return;
   }
 
-  // Get fractal angle from first byte of current block's tree root
-  const tweak = (parseInt(hash.slice(0, 2), 16) % 40) + 5;
-  drawBranches(0, -len, len * 0.8, angle - tweak, branchWidth * 0.8);
-  drawBranches(0, -len, len * 0.8, angle + tweak, branchWidth * 0.8);
+  // Get fractal angle from merkle tree root
+  const merkleroot = state.tip.merkleroot;
+  const hashBytePos = (parseInt(len) % 4) * 2; // get hex position
+  const hashByteHex = merkleroot.slice(hashBytePos, hashBytePos + 2);
+  const tweak = parseInt(hashByteHex, 16) % 45;
+
+  drawBranches(0, -len, len * 0.8, angle - tweak, branchWidth * 0.8, grd, base);
+  drawBranches(0, -len, len * 0.8, angle + tweak, branchWidth * 0.8, grd, base);
 
   ctx.restore();
 }
 
 // Initiates recursive fractal branch-drawing
-function drawTree() {
-  // Compute percent completion of tree interval and set fractal size
-  const len = 60 * (state.interval / params.treeinterval);
-  drawBranches(400, 400, len, 0, 10);
+function drawTree(offX, offY) {
+  // Compute percent of full block weight
+  // for starting line length
+  const weight = state.tip.weight || 4000000;
+  const len = (ART_SIZE * 0.11) * (weight / 4000000);
 
-  // Tree caption
-  ctx.fillStyle = '#ffffff';
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'center';
-  ctx.font = 'bold ' + String(64 / 4) + 'px Courier';
-  ctx.fillText(
-    String(state.interval) + '/' + String(params.treeinterval),
-    400,
-    410
-  );
+  // Estimate tree height
+  const treeHeight = len * 3;
+
+  // Create color gradient for "background" of tree from merkleroot hash
+  const merkleroot = state.tip.merkleroot;
+  const grd = ctx.createLinearGradient(offX, offY, offX, offY - treeHeight);
+  const color1 = '#' + merkleroot.slice(-6);
+  const color0 = '#' + merkleroot.slice(-12, -6);
+  grd.addColorStop(0, color0);
+  grd.addColorStop(1, color1);
+
+  drawBranches(offX, offY, len, 0, 10, grd, ctx.getTransform());
 }
 
-// Fills lower semicircle with halvening meter and difficulty progress
-function drawHalvening() {
-  const height = state.tip.height;
-  const remainder = height % params.halvening;
-  const percent = remainder / params.halvening;
-  const radius = 250;
+// Moon phase shows progress towards next halvening
+function drawHalvening(offX, offY) {
+  const pct = (state.tip.height % params.halvening) / params.halvening;
+  let radius = ART_SIZE / 7;
+  radius -= 30;
+  const shadow = radius * 2 * pct;
 
+  const bits = state.tip.bits;
+  const color0 = '#' + bits.slice(0, 6);
+  const color1 = '#' + bits.slice(2);
+
+  ctx.lineWidth = 4;
+
+  // Everything inside the moon is clipped to the moon circle
+  ctx.save();
   ctx.beginPath();
-  const grd = ctx.createRadialGradient(400, 450, 0, 400, 450, radius);
+  ctx.arc(offX, offY, radius, 0, Math.PI * 2);
+  ctx.clip();
 
-  // Create gradient color pattern out of a sequence of the
-  // target bits from each of the blocks in history object
-  let border = null;
-  for (let i = 0; i < state.bits.length; i++) {
-    const hex = state.bits[i];
-    const color = '#' + hex.slice(2);
-    border = color;
-    grd.addColorStop(i / state.bits.length, color);
-  }
+  // moon circle fill
+  const grd = ctx.createLinearGradient(
+    offX - radius, offY,
+    offX + radius, offY);
+  grd.addColorStop(0, color0);
+  grd.addColorStop(1, color1);
   ctx.fillStyle = grd;
-
-  // Draw portion of semicircle and fill with gradient
-  ctx.moveTo(400, 450);
-  ctx.lineTo((400 / 2) + radius, 450);
-  ctx.arc(400, 450, radius, 0, percent * Math.PI);
-  ctx.lineTo(400, 450);
   ctx.fill();
 
-  // Outline semicircle
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = border; // last color used in gradient (newest block)
-  ctx.moveTo(400, 450);
-  ctx.lineTo((400 / 2) + radius, 450);
-  ctx.arc(400, 450, radius, 0, Math.PI);
-  ctx.lineTo(400, 450);
+  // shadow circle
+  ctx.beginPath();
+  ctx.arc(offX - shadow, offY, radius, 0, Math.PI * 2);
+
+  // shadow circle border
+  ctx.strokeStyle = color0;
   ctx.stroke();
 
-  // Halvening caption
-  ctx.fillStyle = '#ffffff';
+  // shadow circle fill
+  ctx.fillStyle = '#000';
+  ctx.fill();
+
+  ctx.restore();
+
+  // moon circle border
+  ctx.beginPath();
+  ctx.arc(offX, offY, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = color1;
+  ctx.stroke();
+
+  drawDiffAdj(offX, offY, radius);
+}
+
+// Satellite orbits the moon showing progress towards next difficulty adjustment
+function drawDiffAdj(offX, offY, radius) {
+  radius += 26;
+  const pct = (state.tip.height % DIFF_INTERVAL) / DIFF_INTERVAL;
+  const angle = ((Math.PI * 2) * pct) - (Math.PI * 0.5);
+  const markX = offX + (radius * Math.cos(angle));
+  const markY = offY + (radius * Math.sin(angle));
+
+  // satellite
+  const nonce = state.tip.nonce.toString(16).padStart(8, '0');
+  ctx.fillStyle = '#' + nonce.slice(0, 6);
+  ctx.strokeStyle = '#' + nonce.slice(2);
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
-  ctx.font = 'bold ' + String(64 / 4) + 'px Courier';
-  ctx.fillText(
-    String(remainder) + '/' + String(params.halvening),
-    400,
-    440
-  );
+  ctx.font = '64px monospace';
+  ctx.fillText('¤', markX, markY);
+  ctx.strokeText('¤', markX, markY);
 }
 
 // Draw block using colors derived from its hash
@@ -254,8 +301,8 @@ function drawClock() {
   ctx.save();
   ctx.translate((canvas.width / 2) - 400, 0);
 
-  // Halvening meter is drawn first (background)
-  drawHalvening();
+  // Tree, moon and satellite are drawn first (background)
+  drawArt();
 
   // Draw each block received in the last hour
   const now = new Date().getTime() / 1000;
@@ -279,9 +326,6 @@ function drawClock() {
     drawBlock(block, x + clockrad, y + clockrad, 4, tip);
   }
 
-  // Tree fractal is drawn second to last (foreground)
-  // drawTree();
-
   // restore context to full width for mempool
   ctx.restore();
 
@@ -302,15 +346,21 @@ function drawTX(tx) {
 
   // set tx position around clock
   const y1 = (parseInt(tx.hash.slice(2, 4), 16) / 255) * canvas.height;
-  const diamond = Math.abs(y1 - (canvas.height / 2)) - 150;
 
+  // Exclude the chord of the clock circle at this height
+  const cx = (canvas.width / 2) - 400 + CLOCK_CENTER;
+  const cy = CLOCK_CENTER;
+  const dy = y1 - cy;
+  const halfChord = Math.sqrt(Math.max(0, MEMPOOL_RADIUS ** 2 - dy ** 2));
+  const left = Math.max(0, cx - halfChord);
+  const right = Math.min(canvas.width, cx + halfChord);
+
+  // Spread tx across the space remaining on either side of the circle
   let x1 =
     (parseInt(tx.hash.slice(0, 2), 16) / 255) *
-    (canvas.width / 2 + diamond + diamond);
-  x1 =
-    x1 < (canvas.width / 4) + diamond ?
-    x1 :
-    x1 + (canvas.width / 2) - diamond - diamond;
+    (left + canvas.width - right);
+  if (x1 >= left)
+    x1 += right - left;
 
   ctx.translate(x1, y1);
 
@@ -364,15 +414,6 @@ function setTip() {
   const heights = keys.map(x => parseInt(x));
   const max = Math.max(...heights);
   state.tip = latestBlocks[String(max)];
-  state.interval = state.tip.height % params.treeinterval;
-  if (state.interval === 0)
-    state.interval = params.treeinterval;
-  state.bits = [];
-  const amt = Object.keys(latestBlocks).length;
-  for (let i = amt - 1; i >= 0; i--) {
-    const value = latestBlocks[state.tip.height - i].bits;
-    state.bits.push(value.toString(16));
-  }
 }
 
 /**
